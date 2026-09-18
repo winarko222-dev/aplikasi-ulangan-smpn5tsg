@@ -1,12 +1,622 @@
-<!doctype html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SMPN5TSG - Sistem Ulangan Online</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div id="app"></div>
-  <script src="app.js"></script>
-</body>
-</html>
+const DEMO_USERS = [
+  { name: 'Admin SMPN5TSG', email: 'winarko222@guru.smp.belajar.id', password: 'SMPN5TSG@', role: 'admin' },
+  { name: 'Guru Bahasa Indonesia', email: 'guru.bahasa@smpn5tsg.sch.id', password: 'Guru123!', role: 'guru' },
+  { name: 'Siswa Demo', email: 'siswa1@smpn5tsg.sch.id', password: '', role: 'student' }
+];
+
+const DEFAULT_STATE = {
+  user: null,
+  role: '',
+  view: 'login',
+  selectedClass: '',
+  classes: [
+    ['VII-A', '32'],
+    ['VIII-B', '30'],
+    ['IX-A', '28']
+  ],
+  subjects: ['Matematika', 'IPA', 'Bahasa Indonesia', 'IPS', 'PKN'],
+  classSubjects: {
+    'VII-A': ['Bahasa Indonesia'],
+    'VIII-B': ['IPA'],
+    'IX-A': ['Matematika']
+  },
+  students: [
+    ['Andi Pratama', '001', 'IX-A'],
+    ['Budi Santoso', '002', 'IX-A'],
+    ['Citra Dewi', '003', 'IX-A'],
+    ['Dewi Lestari', '004', 'VIII-B'],
+    ['Fajar Nugraha', '005', 'VII-A']
+  ],
+  links: [
+    ['IX-A', 'Matematika', 'Ulangan Bab Bilangan', 'Aktif', 'https://forms.gle/contoh-matematika'],
+    ['VIII-B', 'IPA', 'Ulangan Sistem Pernapasan', 'Aktif', 'https://forms.gle/contoh-ipa'],
+    ['VII-A', 'Bahasa Indonesia', 'Teks Deskripsi', 'Draft', 'https://forms.gle/contoh-indonesia']
+  ],
+  statuses: [
+    ['Andi Pratama', 'IX-A', 'Matematika', 'Sudah mengerjakan', '86'],
+    ['Budi Santoso', 'IX-A', 'Matematika', 'Belum mengerjakan', '-'],
+    ['Citra Dewi', 'IX-A', 'Matematika', 'Sudah mengerjakan', '92'],
+    ['Dewi Lestari', 'VIII-B', 'IPA', 'Sudah mengerjakan', '88'],
+    ['Fajar Nugraha', 'VII-A', 'Bahasa Indonesia', 'Belum mengerjakan', '-']
+  ]
+};
+
+const state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+
+const ROLE_MENU = {
+  admin: [
+    ['dashboard', '🏠', 'Dashboard'],
+    ['classes', '🏫', 'Kelola Kelas'],
+    ['subjects', '📚', 'Mata Pelajaran'],
+    ['students', '👥', 'Siswa'],
+    ['users', '🔐', 'Akun Guru'],
+    ['links', '🔗', 'Link Forms'],
+    ['status', '📊', 'Status Nilai']
+  ],
+  guru: [
+    ['dashboard', '🏠', 'Dashboard'],
+    ['classes', '🏫', 'Kelas Saya'],
+    ['links', '🔗', 'Link Forms'],
+    ['status', '📊', 'Status Pengerjaan']
+  ],
+  student: [
+    ['dashboard', '🏠', 'Dashboard'],
+    ['exams', '📝', 'Ulangan'],
+    ['scores', '🏆', 'Nilai Saya'],
+    ['profile', '👤', 'Profil']
+  ]
+};
+
+const ROUTE_ACCESS = {
+  dashboard: ['admin', 'guru', 'student'],
+  classes: ['admin', 'guru'],
+  subjects: ['admin'],
+  students: ['admin'],
+  users: ['admin'],
+  links: ['admin', 'guru'],
+  status: ['admin', 'guru'],
+  exams: ['student'],
+  scores: ['student'],
+  profile: ['student'],
+  classDetail: ['admin', 'guru']
+};
+
+function saveState() {
+  localStorage.setItem('smpn5tsg-demo', JSON.stringify(state));
+}
+
+function loadState() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('smpn5tsg-demo') || 'null');
+    if (raw) {
+      Object.assign(state, raw);
+    }
+  } catch (error) {
+    console.warn('Tidak bisa membaca data localStorage', error);
+  }
+
+  if (!state.classSubjects) state.classSubjects = {};
+  state.classes.forEach(([kelas]) => {
+    if (!state.classSubjects[kelas]) state.classSubjects[kelas] = [];
+  });
+}
+
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function getLoginMode() {
+  return !!window.SMPN5TSGAuth ? 'supabase' : 'demo';
+}
+
+async function login() {
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const password = document.getElementById('password').value;
+  const role = document.getElementById('role').value;
+
+  if (!email) {
+    alert('Email wajib diisi.');
+    return;
+  }
+
+  if (getLoginMode() === 'supabase') {
+    try {
+      const result = await window.SMPN5TSGAuth.login({ email, password, role });
+      state.user = result.profile;
+      state.role = result.profile.role;
+      state.view = 'dashboard';
+      saveState();
+      render();
+      return;
+    } catch (error) {
+      alert(error.message || 'Login gagal.');
+      return;
+    }
+  }
+
+  const matched = DEMO_USERS.find((u) => {
+    if (u.role !== role) return false;
+    if (role === 'student') return u.email.toLowerCase() === email || email.includes('@');
+    return u.email.toLowerCase() === email && u.password === password;
+  });
+
+  if (!matched) {
+    alert('Login gagal. Gunakan akun yang sesuai dengan role.');
+    return;
+  }
+
+  state.user = { name: matched.name, email: matched.email, role: matched.role };
+  state.role = matched.role;
+  state.view = 'dashboard';
+  saveState();
+  render();
+}
+
+async function logout() {
+  if (getLoginMode() === 'supabase' && window.SMPN5TSGAuth) {
+    try {
+      await window.SMPN5TSGAuth.logout();
+    } catch (error) {
+      console.warn('Logout Supabase gagal', error);
+    }
+  }
+
+  state.user = null;
+  state.role = '';
+  state.view = 'login';
+  localStorage.removeItem('smpn5tsg-demo');
+  render();
+}
+
+function shell(content) {
+  return `
+    <header class="top">
+      <h2>🎓 SMPN5TSG</h2>
+      <div class="top-actions">
+        <span class="user-pill">${esc(state.user?.name || state.role || 'User')}</span>
+        <button class="btn secondary" onclick="logout()">Keluar</button>
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <b>${esc(state.role.toUpperCase())}</b>
+        ${ROLE_MENU[state.role].map(([view, icon, label]) => `
+          <button class="nav ${state.view === view ? 'active' : ''}" onclick="go('${view}')">${icon} ${label}</button>
+        `).join('')}
+      </aside>
+      <main class="wrap content">${content}</main>
+    </div>
+  `;
+}
+
+function go(view) {
+  if (!STATE_CAN_ACCESS(view, state.role)) {
+    alert('Anda tidak memiliki akses ke halaman ini.');
+    return;
+  }
+
+  state.view = view;
+  saveState();
+  render();
+}
+
+function STATE_CAN_ACCESS(view, role) {
+  const allowed = ROUTE_ACCESS[view] || [];
+  return allowed.includes(role);
+}
+
+function card(title, body) {
+  return `<section class="card"><h2>${esc(title)}</h2>${body}</section>`;
+}
+
+function dashboard() {
+  const doneCount = state.statuses.filter((x) => x[3].startsWith('Sudah')).length;
+  const cards = [
+    ['🏫', state.classes.length, 'Kelas'],
+    ['📚', state.subjects.length, 'Mapel'],
+    ['✅', doneCount, 'Sudah'],
+    ['👥', state.students.length, 'Siswa']
+  ];
+
+  const tiles = cards.map(([icon, value, label]) => `
+    <div class="tile">
+      <div class="icon">${icon}</div>
+      <h3>${value}</h3>
+      <p class="muted">${label}</p>
+    </div>
+  `).join('');
+
+  const quick = ROLE_MENU[state.role].slice(1, 4).map(([view, icon, label]) => `
+    <button class="btn secondary" onclick="go('${view}')">${icon} ${label}</button>
+  `).join('');
+
+  return `
+    <div class="welcome">
+      <div>
+        <p class="muted">Sistem Ulangan Online</p>
+        <h1>Selamat datang, ${esc(state.user?.name || 'Pengguna')}</h1>
+      </div>
+      <span class="badge ok">${state.role.toUpperCase()} aktif</span>
+    </div>
+    <div class="grid">${tiles}</div>
+    ${card('Aksi cepat', `<div class="quick">${quick}</div>`) }
+    <p class="notice">
+      ${getLoginMode() === 'supabase' ? 'Mode autentikasi Supabase aktif.' : 'Mode demo aktif. Untuk produksi, gunakan Supabase Auth dan database backend.'}
+    </p>
+  `;
+}
+
+function classes() {
+  const isAdmin = state.role === 'admin';
+  return `
+    <div class="page-head">
+      <h1>${state.role === 'guru' ? 'Kelas Saya' : 'Kelola Kelas'}</h1>
+      ${isAdmin ? '<button class="btn primary small" onclick="addClass()">+ Tambah Kelas</button>' : ''}
+    </div>
+    ${card('Daftar kelas', `
+      <div class="table-wrap">
+        <table class="table">
+          <tr><th>Kelas</th><th>Jumlah siswa</th><th>Mata pelajaran</th><th>Aksi</th></tr>
+          ${state.classes.map(([kelas], index) => `
+            <tr>
+              <td>${esc(kelas)}</td>
+              <td>${state.students.filter((s) => s[2] === kelas).length}</td>
+              <td>${(state.classSubjects[kelas] || []).map((sub) => esc(sub)).join(', ') || '-'}</td>
+              <td>
+                <button class="btn primary small" onclick="openClass(${index})">Buka kelas</button>
+                ${isAdmin ? ` <button class="btn danger small" onclick="deleteClass(${index})">Hapus</button>` : ''}
+              </td>
+            </tr>
+          `).join('')}
+        </table>
+      </div>
+    `)}
+  `;
+}
+
+function openClass(index) {
+  state.selectedClass = state.classes[index][0];
+  state.view = 'classDetail';
+  saveState();
+  render();
+}
+
+function classDetail() {
+  const kelas = state.selectedClass;
+  const siswa = state.students.filter((s) => s[2] === kelas);
+  const mapel = state.classSubjects[kelas] || [];
+
+  return `
+    <div class="page-head">
+      <h1>Kelas ${esc(kelas)}</h1>
+      <button class="btn secondary small" onclick="go('classes')">← Kembali</button>
+    </div>
+    ${card('Mata Pelajaran', `
+      ${mapel.length ? mapel.map((m) => `<span class="chip">📚 ${esc(m)}</span>`).join('') : '<p class="muted">Belum ada mata pelajaran.</p>' }
+      <div class="button-row">
+        <button class="btn primary small" onclick="addClassSubject()">+ Tambah Mata Pelajaran</button>
+      </div>
+    `)}
+    ${card('Nama Siswa', `
+      <div class="table-wrap">
+        <table class="table">
+          <tr><th>No</th><th>Nama</th><th>NIS</th><th>Aksi</th></tr>
+          ${siswa.length ? siswa.map(([nama, nis], i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${esc(nama)}</td>
+              <td>${esc(nis)}</td>
+              <td>
+                ${state.role === 'admin' ? `<button class="btn danger small" onclick="deleteStudent('${esc(nis)}')">Hapus</button>` : ''}
+              </td>
+            </tr>
+          `).join('') : '<tr><td colspan="4">Belum ada siswa di kelas ini.</td></tr>'}
+        </table>
+      </div>
+      ${state.role === 'admin' ? '<button class="btn primary small" onclick="addStudentToClass()">+ Tambah Siswa</button>' : ''}
+    `)}
+  `;
+}
+
+function subjects() {
+  return `
+    <div class="page-head"><h1>Mata Pelajaran</h1></div>
+    ${card('Daftar mapel', `
+      <div class="chips">
+        ${state.subjects.map((sub) => `<span class="chip">📚 ${esc(sub)}</span>`).join('')}
+      </div>
+    `)}
+  `;
+}
+
+function students() {
+  return `
+    <div class="page-head"><h1>Semua Siswa</h1></div>
+    ${card('Data siswa', `
+      <div class="table-wrap">
+        <table class="table">
+          <tr><th>Nama</th><th>NIS</th><th>Kelas</th><th>Aksi</th></tr>
+          ${state.students.map(([nama, nis, kelas]) => `
+            <tr>
+              <td>${esc(nama)}</td>
+              <td>${esc(nis)}</td>
+              <td>${esc(kelas)}</td>
+              <td><button class="btn danger small" onclick="deleteStudent('${esc(nis)}')">Hapus</button></td>
+            </tr>
+          `).join('')}
+        </table>
+      </div>
+    `)}
+  `;
+}
+
+function users() {
+  return `
+    <div class="page-head"><h1>Akun Guru</h1><button class="btn primary small" onclick="addUser()">+ Tambah Guru</button></div>
+    ${card('Daftar guru', `
+      <div class="table-wrap">
+        <table class="table">
+          <tr><th>Nama</th><th>Email</th><th>Aksi</th></tr>
+          <tr>
+            <td>Guru Bahasa Indonesia</td>
+            <td>guru.bahasa@smpn5tsg.sch.id</td>
+            <td><button class="btn danger small" onclick="alert('Demo: guru bisa dihapus dari panel admin backend.')">Hapus</button></td>
+          </tr>
+        </table>
+      </div>
+    `)}
+  `;
+}
+
+function linksPage() {
+  return `
+    <div class="page-head">
+      <h1>Link Google Forms</h1>
+      ${state.role === 'admin' ? '<button class="btn primary small" onclick="addLink()">+ Tambah Link</button>' : ''}
+    </div>
+    ${state.links.map(([kelas, mapel, title, status, url]) => card(`${esc(kelas)} • ${esc(mapel)}`, `
+      <p><b>${esc(title)}</b> <span class="badge ${status === 'Aktif' ? 'ok' : 'wait'}">${esc(status)}</span></p>
+      <p class="link">${esc(url)}</p>
+      <button class="btn secondary small" onclick="window.open('${esc(url)}', '_blank')">Buka Forms</button>
+    `)).join('')}
+  `;
+}
+
+function statusPage() {
+  return `
+    <div class="page-head">
+      <h1>Status & Nilai</h1>
+      <button class="btn primary small" onclick="downloadCSV()">⬇️ CSV</button>
+    </div>
+    ${card('Pengerjaan', `
+      <div class="table-wrap">
+        <table class="table">
+          <tr><th>Nama</th><th>Kelas</th><th>Mapel</th><th>Status</th><th>Nilai</th></tr>
+          ${state.statuses.map(([nama, kelas, mapel, status, nilai]) => `
+            <tr>
+              <td>${esc(nama)}</td>
+              <td>${esc(kelas)}</td>
+              <td>${esc(mapel)}</td>
+              <td><span class="badge ${status.startsWith('Sudah') ? 'ok' : 'wait'}">${esc(status)}</span></td>
+              <td>${esc(nilai)}</td>
+            </tr>
+          `).join('')}
+        </table>
+      </div>
+    `)}
+  `;
+}
+
+function exams() {
+  return `
+    <h1>Ulangan Tersedia</h1>
+    ${state.links.filter(([kelas, mapel, title, status]) => status === 'Aktif').map(([kelas, mapel, title, status, url]) => card(`${esc(title)}`, `
+      <p>${esc(kelas)} • ${esc(mapel)}</p>
+      <button class="btn primary small" onclick="window.open('${esc(url)}', '_blank')">Buka Forms</button>
+    `)).join('')}
+  `;
+}
+
+function scores() {
+  return `
+    <h1>Nilai Saya</h1>
+    ${card('Hasil ulangan', `
+      <div class="table-wrap">
+        <table class="table">
+          <tr><th>Mapel</th><th>Nilai</th><th>Status</th></tr>
+          <tr><td>Matematika</td><td><b>86</b></td><td><span class="badge ok">Sudah dinilai</span></td></tr>
+          <tr><td>IPA</td><td><b>88</b></td><td><span class="badge ok">Sudah dinilai</span></td></tr>
+        </table>
+      </div>
+    `)}
+  `;
+}
+
+function profile() {
+  return `
+    <h1>Profil</h1>
+    ${card('Data siswa', `
+      <p><b>Nama:</b> Andi Pratama</p>
+      <p><b>NIS:</b> 001</p>
+      <p><b>Kelas:</b> IX-A</p>
+    `)}
+  `;
+}
+
+function addClass() {
+  const nama = prompt('Masukkan nama kelas, contoh IX-B');
+  if (!nama || !nama.trim()) return;
+  const className = nama.trim();
+  if (state.classes.some(([c]) => c.toLowerCase() === className.toLowerCase())) {
+    alert('Kelas sudah ada.');
+    return;
+  }
+  state.classes.push([className, '0']);
+  state.classSubjects[className] = [];
+  saveState();
+  render();
+}
+
+function deleteClass(index) {
+  const [className] = state.classes[index];
+  if (!confirm(`Hapus kelas ${className}?`)) return;
+  state.classes.splice(index, 1);
+  delete state.classSubjects[className];
+  state.students = state.students.filter((s) => s[2] !== className);
+  state.links = state.links.filter((link) => link[0] !== className);
+  state.statuses = state.statuses.filter((status) => status[1] !== className);
+  saveState();
+  render();
+}
+
+function addClassSubject() {
+  const input = prompt('Masukkan nama mata pelajaran baru untuk kelas ' + state.selectedClass);
+  if (!input || !input.trim()) return;
+  const subject = input.trim();
+  if (!state.subjects.includes(subject)) state.subjects.push(subject);
+  const arr = state.classSubjects[state.selectedClass] || [];
+  if (!arr.includes(subject)) arr.push(subject);
+  state.classSubjects[state.selectedClass] = arr;
+  saveState();
+  render();
+}
+
+function addStudentToClass() {
+  const nama = prompt('Nama siswa');
+  const nis = prompt('NIS');
+  if (!nama || !nis) return;
+  state.students.push([nama.trim(), nis.trim(), state.selectedClass]);
+  saveState();
+  render();
+}
+
+function deleteStudent(nis) {
+  if (!confirm('Hapus siswa ini?')) return;
+  state.students = state.students.filter((s) => s[1] !== nis);
+  saveState();
+  render();
+}
+
+function addUser() {
+  const name = prompt('Nama guru');
+  const email = prompt('Email guru');
+  const password = prompt('Password guru');
+  if (!name || !email || !password) return;
+  alert('Pada backend produksi, guru dibuat dari admin dan password disimpan aman di database. Pada mode demo, akun guru tetap dibuat secara lokal.');
+  DEMO_USERS.push({
+    name: name.trim(),
+    email: email.trim().toLowerCase(),
+    password: password.trim(),
+    role: 'guru'
+  });
+  render();
+}
+
+function addLink() {
+  const kelas = prompt('Kelas');
+  const mapel = prompt('Mapel');
+  const title = prompt('Judul ulangan');
+  const url = prompt('Link Google Forms');
+  if (!kelas || !mapel || !title || !url) return;
+  state.links.push([kelas.trim(), mapel.trim(), title.trim(), 'Draft', url.trim()]);
+  saveState();
+  render();
+}
+
+function downloadCSV() {
+  const rows = [['Nama', 'Kelas', 'Mapel', 'Status', 'Nilai'], ...state.statuses];
+  const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'rekap-nilai-smpn5tsg.csv';
+  a.click();
+}
+
+function loginPage() {
+  return `
+    <main class="login">
+      <section class="card login-card">
+        <div class="logo">S</div>
+        <h1>SMPN5TSG</h1>
+        <p class="muted">Sistem Ulangan Online</p>
+
+        <label class="field">Email</label>
+        <input id="email" type="email" placeholder="admin@guru.smp.belajar.id atau siswa@example.com" />
+
+        <label class="field">Password</label>
+        <input id="password" type="password" placeholder="Untuk admin/guru. Siswa bisa kosong di mode demo." />
+
+        <label class="field">Masuk sebagai</label>
+        <select id="role">
+          <option value="admin">Admin</option>
+          <option value="guru">Guru</option>
+          <option value="student">Siswa</option>
+        </select>
+
+        <button class="btn primary" onclick="login()">Masuk</button>
+        <p class="muted">
+          ${getLoginMode() === 'supabase'
+            ? 'Mode Supabase aktif. Login akan divalidasi oleh backend.'
+            : 'Mode demo aktif: admin email = winarko222@guru.smp.belajar.id / password = SMPN5TSG@'}
+        </p>
+      </section>
+    </main>
+  `;
+}
+
+function render() {
+  const route = {
+    login: loginPage,
+    dashboard,
+    classes,
+    subjects,
+    students,
+    users,
+    links: linksPage,
+    status: statusPage,
+    exams,
+    scores,
+    profile,
+    classDetail
+  };
+
+  if (!state.user) {
+    document.getElementById('app').innerHTML = loginPage();
+    return;
+  }
+
+  if (!STATE_CAN_ACCESS(state.view, state.role)) {
+    state.view = 'dashboard';
+  }
+
+  const content = route[state.view] ? route[state.view]() : dashboard();
+  document.getElementById('app').innerHTML = shell(content);
+}
+
+loadState();
+render();
+window.addEventListener('DOMContentLoaded', () => {
+  if (window.SMPN5TSGAuth) {
+    console.log('Supabase auth helper aktif. Login akan menggunakan backend terproteksi.');
+  }
+});
+
+window.go = go;
+window.login = login;
+window.logout = logout;
+window.addClass = addClass;
+window.deleteClass = deleteClass;
+window.openClass = openClass;
+window.addClassSubject = addClassSubject;
+window.addStudentToClass = addStudentToClass;
+window.deleteStudent = deleteStudent;
+window.addUser = addUser;
+window.addLink = addLink;
+window.downloadCSV = downloadCSV;
+window.render = render;

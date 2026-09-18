@@ -1,10 +1,13 @@
-/* Fill these values from Supabase Project Settings > API. Never put the service_role key here. */
+/* Isi dari Supabase Dashboard > Project Settings > API. Jangan masukkan service_role key. */
 window.SMPN5TSG_CONFIG = {
-  supabaseUrl: '',
-  supabaseAnonKey: '',
-  googleAppsScriptUrl: ''
+  supabaseUrl: 'https://YOUR_PROJECT_REF.supabase.co',
+  supabaseAnonKey: 'YOUR_SUPABASE_ANON_KEY',
+  googleAppsScriptUrl: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec',
+  useSupabase: false
 };
 
 window.SMPN5TSG_CONFIG.isSupabaseConfigured = function () {
-  return Boolean(this.supabaseUrl && this.supabaseAnonKey);
+  return this.useSupabase === true
+    && /^https:\/\/[^/]+\.supabase\.co$/.test(this.supabaseUrl)
+    && this.supabaseAnonKey.length > 20;
 };

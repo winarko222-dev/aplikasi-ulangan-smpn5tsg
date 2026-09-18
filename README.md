@@ -1,52 +1,31 @@
-# SMPN5TSG — production auth starter
+# Urutan setup produksi SMPN5TSG
 
-Fitur ini merupakan tahap awal migrasi dari prototype lokal ke sistem keamanan yang benar.
+## 1. Supabase
+1. Buat project Supabase.
+2. Jalankan `supabase-schema.sql` di SQL Editor.
+3. Aktifkan Authentication > Providers > Email.
+4. Buat user admin di Authentication > Users.
+5. Jalankan `update public.profiles set role = 'admin' where email = 'winarko222@guru.smp.belajar.id';`.
+6. Isi `config.js` dengan Project URL dan anon public key.
+7. Set `useSupabase: true`.
+8. Uji login. Jika email confirmation aktif, konfirmasi email terlebih dahulu.
 
-## Yang sudah dibuat
-- File `auth.js` berisi helper login, logout, dan role guard.
-- File `supabase-schema.sql` berisi struktur database awal yang aman.
-- File `supabase-auth-example.js` berisi contoh pemanggilan login dan requireRole.
-- File `docs/PRODUCTION-SECURITY.md` menjelaskan pendekatan keamanan produksi.
+## 2. Google Forms dan Sheets
+1. Buat Google Form dan hubungkan ke Google Sheet.
+2. Tambahkan pertanyaan/kolom `Email`, `NIS`, `Nilai`, dan `exam_link_id`.
+3. Buka Extensions > Apps Script pada spreadsheet tersebut.
+4. Salin `google-apps-script/Code.gs`.
+5. Tambahkan Script Properties:
+   - `SUPABASE_URL`: URL project Supabase
+   - `SUPABASE_SERVICE_ROLE_KEY`: service role key Supabase
+6. Pasang installable trigger untuk fungsi `onFormSubmit`, event source From spreadsheet, event type On form submit.
+7. Uji dengan satu respons Forms.
 
-## Cara memakai
-1. Buat project Supabase baru.
-2. Aktifkan Supabase Auth.
-3. Terapkan schema pada file `supabase-schema.sql` ke database Supabase.
-4. Salin file `auth-config.example.html` ke file baru, lalu isi `SUPABASE_URL` dan `SUPABASE_ANON_KEY`.
-5. Masukkan script tersebut sebelum `app.js` di file `index.html`.
-6. Panggil fungsi `SMPN5TSGAuth.login()` saat user login.
-7. Panggil `SMPN5TSGAuth.requireRole('admin')`, `SMPN5TSGAuth.requireRole('guru')`, atau `SMPN5TSGAuth.requireRole('student')` sebelum membuka halaman sensitif.
+## 3. Deploy Apps Script jika dibutuhkan
+Untuk trigger spreadsheet, deploy web app tidak wajib. Jika ingin health check, deploy sebagai Web app lalu masukkan URL-nya ke `config.js` pada `googleAppsScriptUrl`.
 
-## Catatan penting
-Versi GitHub Pages ini masih prototype. Untuk produksi sekolah, data akun dan password harus disimpan di backend Supabase/Auth, bukan di browser localStorage.
-
-## Contoh penggunaan
-```html
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="auth.js"></script>
-<script>
-  SMPN5TSGAuth.initSupabase({
-    url: 'https://YOUR_PROJECT_ID.supabase.co',
-    anonKey: 'YOUR_ANON_KEY',
-  });
-
-  async function doLogin() {
-    try {
-      const result = await SMPN5TSGAuth.login({
-        email: 'admin@smpn5tsg.sch.id',
-        password: 'Password123',
-        role: 'admin',
-      });
-      console.log('Login sukses', result.profile);
-    } catch (error) {
-      console.error(error.message);
-    }
-  }
-</script>
-```
-
-## Langkah berikutnya
-- integrasikan login ini ke `app.js`
-- buat halaman role-specific untuk admin, guru, dan siswa
-- hubungkan Google Forms/Sheets melalui backend
-- tambahkan audit log pengelolaan kelas dan nilai
+## Keamanan
+- `service_role key` hanya di Apps Script Properties/backend; jangan di GitHub, `config.js`, atau frontend.
+- `anon key` boleh di frontend jika RLS sudah aktif.
+- Untuk produksi, siswa juga harus memakai akun/password Supabase; email bebas hanya untuk demo.
+- Setelah uji berhasil, hapus data demo dari localStorage browser.

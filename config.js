@@ -2,7 +2,7 @@
 window.SMPN5TSG_CONFIG = {
   supabaseUrl: 'https://YOUR_PROJECT_REF.supabase.co',
   supabaseAnonKey: 'YOUR_SUPABASE_ANON_KEY',
-  googleAppsScriptUrl: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec',
+  googleAppsScriptUrl: '',
   useSupabase: false
 };
 

@@ -1,6 +1,10 @@
 const defaultState = {
   role: 'Admin',
   view: 'dashboard',
+  connectedGoogle: false,
+  googleAccount: '',
+  googleFormUrl: '',
+  googleSheetUrl: '',
   classes: [
     ['VII-A', '32'],
     ['VIII-B', '30'],
@@ -37,11 +41,9 @@ function saveState() {
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem('smpn5tsg-demo') || 'null');
-    if (saved) {
-      Object.assign(state, saved);
-    }
-  } catch (e) {
-    console.warn('Tidak bisa membaca localStorage', e);
+    if (saved) Object.assign(state, saved);
+  } catch (error) {
+    console.warn('Tidak bisa membaca localStorage', error);
   }
 }
 
@@ -65,6 +67,8 @@ function login() {
 
   state.role = role;
   state.view = 'dashboard';
+  state.connectedGoogle = true;
+  state.googleAccount = email;
   saveState();
   render();
 }
@@ -72,6 +76,8 @@ function login() {
 function logout() {
   state.role = 'Admin';
   state.view = 'dashboard';
+  state.connectedGoogle = false;
+  state.googleAccount = '';
   localStorage.removeItem('smpn5tsg-demo');
   renderLogin();
 }
@@ -83,12 +89,14 @@ const menuByRole = {
     ['subjects', '📚', 'Mata Pelajaran'],
     ['students', '👥', 'Siswa'],
     ['links', '🔗', 'Link Google Forms'],
+    ['google', '🔐', 'Integrasi Google'],
     ['status', '📊', 'Status & Nilai']
   ],
   Guru: [
     ['dashboard', '🏠', 'Dashboard'],
     ['classes', '🏫', 'Kelas Saya'],
     ['links', '🔗', 'Link Google Forms'],
+    ['google', '🔐', 'Google Sync'],
     ['status', '📊', 'Status Pengerjaan'],
     ['reports', '⬇️', 'Download Rekap']
   ],
@@ -139,7 +147,7 @@ function dashboard() {
     ['🏫', state.classes.length, 'Kelas'],
     ['📚', state.subjects.length, 'Mapel'],
     ['✅', doneCount, 'Sudah'],
-    ['📝', state.links.length, 'Ulangan']
+    ['🔐', state.connectedGoogle ? 'Aktif' : 'Belum', 'Google']
   ];
 
   const quick = menuByRole[state.role]
@@ -163,7 +171,7 @@ function dashboard() {
         <p class="muted">Sistem Ulangan Online</p>
         <h1>Selamat datang, ${esc(state.role)}</h1>
       </div>
-      <span class="badge ok">Prototype aktif</span>
+      <span class="badge ${state.connectedGoogle ? 'ok' : 'wait'}">${state.connectedGoogle ? 'Google aktif' : 'Google belum aktif'}</span>
     </div>
 
     <div class="grid">${tiles}</div>
@@ -171,7 +179,7 @@ function dashboard() {
     ${card('Aksi cepat', `<div class="quick">${quick}</div>`) }
 
     <p class="notice">
-      Data demo ini sedang berjalan di browser perangkat Anda. Integrasi Google Forms, Google Sheets, dan database online akan ditambahkan pada tahap berikutnya.
+      ${state.connectedGoogle ? `Akun Google terhubung: ${esc(state.googleAccount)}` : 'Akun Google belum terhubung. Silakan sambungkan akun Google di menu Integrasi Google.'}
     </p>
   `;
 }
@@ -190,17 +198,13 @@ function classes() {
             <th>Jumlah siswa</th>
             <th>Aksi</th>
           </tr>
-          ${state.classes
-            .map(
-              ([kelas, jumlah]) => `
-                <tr>
-                  <td>${esc(kelas)}</td>
-                  <td>${esc(jumlah)}</td>
-                  <td><button class="btn secondary small" onclick="alert('Detail kelas ${esc(kelas)} siap dibuat.')">Lihat</button></td>
-                </tr>
-              `
-            )
-            .join('')}
+          ${state.classes.map(([kelas, jumlah]) => `
+            <tr>
+              <td>${esc(kelas)}</td>
+              <td>${esc(jumlah)}</td>
+              <td><button class="btn secondary small" onclick="alert('Detail kelas ${esc(kelas)} siap dibuat.')">Lihat</button></td>
+            </tr>
+          `).join('')}
         </table>
       </div>
     `)}
@@ -235,17 +239,13 @@ function students() {
             <th>NIS</th>
             <th>Kelas</th>
           </tr>
-          ${state.students
-            .map(
-              ([nama, nis, kelas]) => `
-                <tr>
-                  <td>${esc(nama)}</td>
-                  <td>${esc(nis)}</td>
-                  <td>${esc(kelas)}</td>
-                </tr>
-              `
-            )
-            .join('')}
+          ${state.students.map(([nama, nis, kelas]) => `
+            <tr>
+              <td>${esc(nama)}</td>
+              <td>${esc(nis)}</td>
+              <td>${esc(kelas)}</td>
+            </tr>
+          `).join('')}
         </table>
       </div>
     `)}
@@ -259,23 +259,80 @@ function linksPage() {
       <button class="btn primary small" onclick="addLink()">+ Tambah Link</button>
     </div>
     <p class="muted">Tiap mata pelajaran dapat memiliki tautan Google Forms yang berbeda.</p>
-    ${state.links
-      .map(
-        ([kelas, mapel, title, status, url]) => card(
-          `${esc(kelas)} • ${esc(mapel)}`,
-          `
-            <p><b>${esc(title)}</b> <span class="badge ${status === 'Aktif' ? 'ok' : 'wait'}">${esc(status)}</span></p>
-            <p class="link">${esc(url)}</p>
-            <div class="button-row">
-              <button class="btn secondary small" onclick="window.open('${esc(url)}', '_blank')">Buka Forms</button>
-              <button class="btn secondary small" onclick="alert('Edit link ${esc(title)} akan dibuat pada tahap integrasi.')">Edit</button>
-            </div>
-          `,
-          'link-card'
-        )
-      )
-      .join('')}
+    ${state.links.map(([kelas, mapel, title, status, url]) => card(
+      `${esc(kelas)} • ${esc(mapel)}`,
+      `
+        <p><b>${esc(title)}</b> <span class="badge ${status === 'Aktif' ? 'ok' : 'wait'}">${esc(status)}</span></p>
+        <p class="link">${esc(url)}</p>
+        <div class="button-row">
+          <button class="btn secondary small" onclick="window.open('${esc(url)}', '_blank')">Buka Forms</button>
+          <button class="btn secondary small" onclick="alert('Edit link ${esc(title)} akan dibuat pada tahap integrasi.')">Edit</button>
+        </div>
+      `,
+      'link-card'
+    )).join('')}
   `;
+}
+
+function googleIntegration() {
+  return `
+    <div class="page-head">
+      <h1>Integrasi Google</h1>
+      <button class="btn primary small" onclick="testGoogleConnection()">Tes Koneksi</button>
+    </div>
+
+    ${card('Status koneksi', `
+      <p><b>Akun Google:</b> ${state.googleAccount || 'Belum terhubung'}</p>
+      <p><b>Status:</b> <span class="badge ${state.connectedGoogle ? 'ok' : 'wait'}">${state.connectedGoogle ? 'Terhubung' : 'Belum terhubung'}</span></p>
+      <p class="muted">Untuk integrasi nyata, akun Google atau belajar.id akan dipakai untuk autentikasi, Google Forms, Sheets, dan Drive API.</p>
+    `)}
+
+    ${card('Sambungkan akun Google', `
+      <label class="field">Akun Google / belajar.id</label>
+      <input id="googleAccountInput" value="${esc(state.googleAccount || '')}" placeholder="nama.guru@belajar.id" />
+
+      <label class="field">URL Google Form</label>
+      <input id="googleFormInput" value="${esc(state.googleFormUrl || '')}" placeholder="https://forms.gle/..." />
+
+      <label class="field">URL Google Sheet</label>
+      <input id="googleSheetInput" value="${esc(state.googleSheetUrl || '')}" placeholder="https://docs.google.com/spreadsheets/..." />
+
+      <div class="button-row">
+        <button class="btn primary" onclick="saveGoogleConfig()">Simpan konfigurasi</button>
+        <button class="btn secondary" onclick="simulateGoogleSync()">Sinkronisasi demo</button>
+      </div>
+    `)}
+  `;
+}
+
+function saveGoogleConfig() {
+  const account = document.getElementById('googleAccountInput')?.value?.trim();
+  const formUrl = document.getElementById('googleFormInput')?.value?.trim();
+  const sheetUrl = document.getElementById('googleSheetInput')?.value?.trim();
+
+  if (!account) {
+    alert('Isi akun Google terlebih dahulu.');
+    return;
+  }
+
+  state.googleAccount = account;
+  state.googleFormUrl = formUrl;
+  state.googleSheetUrl = sheetUrl;
+  state.connectedGoogle = true;
+  saveState();
+  render();
+}
+
+function simulateGoogleSync() {
+  state.connectedGoogle = true;
+  state.googleAccount = state.googleAccount || 'guru.smpn5tsg@belajar.id';
+  saveState();
+  alert('Sinkronisasi demo Google berhasil. Pada tahap nyata, data akan masuk dari Google Forms dan Google Sheets.');
+  render();
+}
+
+function testGoogleConnection() {
+  alert(`Koneksi Google untuk ${state.googleAccount || 'akun belum diisi'} siap diuji pada tahap backend. Untuk demo, status berhasil dipertahankan.`);
 }
 
 function statusPage() {
@@ -294,19 +351,15 @@ function statusPage() {
             <th>Status</th>
             <th>Nilai</th>
           </tr>
-          ${state.statuses
-            .map(
-              ([nama, kelas, mapel, status, nilai]) => `
-                <tr>
-                  <td>${esc(nama)}</td>
-                  <td>${esc(kelas)}</td>
-                  <td>${esc(mapel)}</td>
-                  <td><span class="badge ${status.startsWith('Sudah') ? 'ok' : 'wait'}">${esc(status)}</span></td>
-                  <td>${esc(nilai)}</td>
-                </tr>
-              `
-            )
-            .join('')}
+          ${state.statuses.map(([nama, kelas, mapel, status, nilai]) => `
+            <tr>
+              <td>${esc(nama)}</td>
+              <td>${esc(kelas)}</td>
+              <td>${esc(mapel)}</td>
+              <td><span class="badge ${status.startsWith('Sudah') ? 'ok' : 'wait'}">${esc(status)}</span></td>
+              <td>${esc(nilai)}</td>
+            </tr>
+          `).join('')}
         </table>
       </div>
     `)}
@@ -322,15 +375,13 @@ function exams() {
     <h1>Ulangan Tersedia</h1>
     ${state.links
       .filter(([kelas, mapel, title, status]) => status === 'Aktif')
-      .map(
-        ([kelas, mapel, title, status, url]) => card(
-          `${esc(title)}`,
-          `
-            <p>${esc(kelas)} • ${esc(mapel)}</p>
-            <button class="btn primary small" onclick="window.open('${esc(url)}', '_blank')">Buka Google Forms</button>
-          `
-        )
-      )
+      .map(([kelas, mapel, title, status, url]) => card(
+        `${esc(title)}`,
+        `
+          <p>${esc(kelas)} • ${esc(mapel)}</p>
+          <button class="btn primary small" onclick="window.open('${esc(url)}', '_blank')">Buka Google Forms</button>
+        `
+      ))
       .join('')}
   `;
 }
@@ -422,11 +473,9 @@ function downloadCSV() {
     ['Nama', 'Kelas', 'Mata Pelajaran', 'Status', 'Nilai'],
     ...state.statuses
   ];
-
   const csv = rows
     .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     .join('\n');
-
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
@@ -441,6 +490,7 @@ function render() {
     subjects,
     students,
     links: linksPage,
+    google: googleIntegration,
     status: statusPage,
     reports,
     exams,

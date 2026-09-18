@@ -2,15 +2,21 @@
 
 Prototype web responsif untuk admin, guru, dan siswa.
 
-## Tahap 3 yang tersedia
+## Tahap 4 yang tersedia
 - Login simulasi dengan role Admin, Guru, dan Siswa
-- Dashboard dengan ringkasan data
+- Dashboard dengan ringkasan data sekolah
 - Kelola kelas, mata pelajaran, dan siswa
-- Menu link Google Forms per kelas dan mapel
+- Menu link Google Forms dan Google Sync
 - Status pengerjaan siswa dan rekap nilai
-- Download CSV nilai
-- Data demo tersimpan di browser perangkat (localStorage)
-- Tampilan responsive untuk HP dan layar desktop
+- Download CSV untuk rekapan nilai
+- Data tersimpan di browser (localStorage)
+- Tampilan responsive untuk HP dan desktop
+
+## Fitur baru pada tahap 4
+- Integrasi Google account demonstrasi
+- Panel Google Sync untuk mengisi akun Google, form URL, dan sheet URL
+- Status koneksi Google aktif/belum aktif
+- Persiapan integrasi Google Forms dan Google Sheets di tahap berikutnya
 
 ## Cara membuka dari HP
 1. Buka repository di GitHub.
@@ -21,4 +27,4 @@ Prototype web responsif untuk admin, guru, dan siswa.
 6. Buka link tersebut dari HP.
 
 ## Catatan
-Tahap ini masih bersifat prototype frontend dan belum terhubung ke database online, Google OAuth, atau Google Sheets. Tujuan tahap ini adalah mempersiapkan flow aplikasi yang benar sebelum integrasi data real dimulai.
+Tahap ini masih bersifat prototype frontend. Untuk integrasi nyata dengan Google Forms dan Google Sheets, diperlukan OAuth Google, Google Drive API, dan backend yang akan dikembangkan pada tahap berikutnya.

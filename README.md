@@ -1,8 +1,22 @@
 # SMPN5TSG — Sistem Ulangan Online
 
-Prototype web responsif yang dapat dibuka dari HP. Fitur demo: login role Admin/Guru/Siswa, dashboard, kelas, mata pelajaran, link Google Forms, status pengerjaan, dan rekap nilai.
+Prototype web responsif untuk admin, guru, dan siswa.
 
-## Menjalankan dari HP
-Buka `index.html` melalui GitHub Pages setelah Pages diaktifkan pada Settings → Pages → Deploy from branch → `main` → `/ (root)`.
+## Tahap 2 yang tersedia
+- Dashboard dengan navigasi sesuai role.
+- Admin: kelola kelas, mata pelajaran, akun siswa contoh, link Google Forms, status dan nilai.
+- Guru: kelas, link Forms, status pengerjaan, dan download CSV.
+- Siswa: ulangan tersedia, membuka link Forms, nilai, dan profil.
+- Tambah kelas, mata pelajaran, dan link Forms pada prototype.
+- Rekap nilai dapat diunduh sebagai CSV.
+- Data demo tersimpan di penyimpanan browser perangkat yang digunakan.
 
-> Data pada versi ini masih data contoh dan belum tersimpan ke database. Integrasi Google Forms/Sheets akan dibuat pada tahap berikutnya.
+## Membuka dari HP
+1. Buka repository ini di GitHub.
+2. Masuk ke **Settings → Pages**.
+3. Pada **Build and deployment**, pilih **Deploy from a branch**.
+4. Pilih branch `main`, folder `/ (root)`, lalu tekan **Save**.
+5. Tunggu beberapa menit, lalu buka alamat Pages yang diberikan GitHub.
+
+## Catatan
+Tahap ini belum menggunakan database online. Login masih simulasi dan data Google Forms/Sheets belum dibaca otomatis. Tahap berikutnya adalah autentikasi dan integrasi Google OAuth/Sheets.

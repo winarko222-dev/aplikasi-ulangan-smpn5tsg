@@ -2,21 +2,23 @@
 
 Prototype web responsif untuk admin, guru, dan siswa.
 
-## Tahap 2 yang tersedia
-- Dashboard dengan navigasi sesuai role.
-- Admin: kelola kelas, mata pelajaran, akun siswa contoh, link Google Forms, status dan nilai.
-- Guru: kelas, link Forms, status pengerjaan, dan download CSV.
-- Siswa: ulangan tersedia, membuka link Forms, nilai, dan profil.
-- Tambah kelas, mata pelajaran, dan link Forms pada prototype.
-- Rekap nilai dapat diunduh sebagai CSV.
-- Data demo tersimpan di penyimpanan browser perangkat yang digunakan.
+## Tahap 3 yang tersedia
+- Login simulasi dengan role Admin, Guru, dan Siswa
+- Dashboard dengan ringkasan data
+- Kelola kelas, mata pelajaran, dan siswa
+- Menu link Google Forms per kelas dan mapel
+- Status pengerjaan siswa dan rekap nilai
+- Download CSV nilai
+- Data demo tersimpan di browser perangkat (localStorage)
+- Tampilan responsive untuk HP dan layar desktop
 
-## Membuka dari HP
-1. Buka repository ini di GitHub.
+## Cara membuka dari HP
+1. Buka repository di GitHub.
 2. Masuk ke **Settings → Pages**.
-3. Pada **Build and deployment**, pilih **Deploy from a branch**.
-4. Pilih branch `main`, folder `/ (root)`, lalu tekan **Save**.
-5. Tunggu beberapa menit, lalu buka alamat Pages yang diberikan GitHub.
+3. Pilih **Deploy from a branch**.
+4. Pilih branch `main` dan folder `/ (root)`.
+5. Simpan dan tunggu GitHub membuat link website.
+6. Buka link tersebut dari HP.
 
 ## Catatan
-Tahap ini belum menggunakan database online. Login masih simulasi dan data Google Forms/Sheets belum dibaca otomatis. Tahap berikutnya adalah autentikasi dan integrasi Google OAuth/Sheets.
+Tahap ini masih bersifat prototype frontend dan belum terhubung ke database online, Google OAuth, atau Google Sheets. Tujuan tahap ini adalah mempersiapkan flow aplikasi yang benar sebelum integrasi data real dimulai.

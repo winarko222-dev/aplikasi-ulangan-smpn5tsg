@@ -1,0 +1,19 @@
+<!--
+  Ini adalah starter keamanan produksi untuk aplikasi SMPN5TSG.
+  Langkahnya:
+  1. Tambahkan script Supabase di HTML sebelum file app.js.
+  2. Isi nilai URL dan anon key.
+  3. Aktifkan Supabase Auth dan schema yang ada di supabase-schema.sql.
+  4. Gunakan fungsi login/requireRole dari auth.js.
+-->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+  const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+
+  SMPN5TSGAuth.initSupabase({
+    url: SUPABASE_URL,
+    anonKey: SUPABASE_ANON_KEY,
+  });
+</script>

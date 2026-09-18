@@ -1,11 +1,17 @@
-# Atualização de segurança e gestão de utilizadores
+# Panduan akun SMPN5TSG
 
-- O administrador utiliza a conta definida pela constante `ADMIN_EMAIL` em `app.js`.
-- A senha inicial de demonstração é `Admin123!`; troque-a antes de usar em produção.
-- O administrador pode criar e excluir contas de professores e alunos.
-- Professores e alunos só entram com e-mail, senha e função cadastrados pelo administrador.
-- O administrador e os professores podem adicionar/excluir alunos da turma; professores não podem acessar menus de administrador.
-- Os dados ainda ficam em `localStorage` no navegador. Isso é apenas protótipo: para segurança real, será necessário banco de dados e autenticação no servidor.
+Perubahan login sudah diterapkan.
 
-## Importante
-Edite `ADMIN_EMAIL` no início de `app.js` para colocar o e-mail real do administrador antes de membagikan aplikasi.
+## Admin
+- Email: `winarko222@guru.smp.belajar.id`
+- Password: `SMPN5TSG@`
+- Pilih peran **Admin** saat masuk.
+
+## Guru
+Admin membuka menu **Akun Guru**, lalu menambahkan nama, email guru, dan sandi khusus. Guru memakai email dan sandi tersebut serta memilih **Guru**.
+
+## Siswa
+Siswa cukup memasukkan email apa pun yang valid, tidak perlu password, lalu memilih **Siswa**. Siswa hanya mendapatkan menu siswa dan tidak dapat membuka menu admin/guru melalui aplikasi.
+
+## Catatan keamanan penting
+Versi GitHub Pages ini masih prototype dan menyimpan data di `localStorage`, sehingga data akun berbeda pada setiap perangkat/browser dan belum aman untuk penggunaan sekolah sebenarnya. Password admin/guru terlihat di kode frontend. Untuk produksi, gunakan database dan autentikasi server agar akun tidak bisa dipalsukan.

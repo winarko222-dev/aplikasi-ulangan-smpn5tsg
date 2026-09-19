@@ -1,0 +1,17 @@
+{
+  "name": "SMPN5TSG",
+  "short_name": "SMPN5TSG",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f8ff",
+  "theme_color": "#143b6b",
+  "description": "Sistem Ulangan Online SMPN5TSG",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

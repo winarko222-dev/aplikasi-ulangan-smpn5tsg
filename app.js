@@ -1,7 +1,12 @@
 const defaultState = {
   role: '',
   user: null,
-  view: 'login'
+  view: 'login',
+  classes: [],
+  subjects: [],
+  students: [],
+  links: [],
+  users: []
 };
 
 const state = JSON.parse(JSON.stringify(defaultState));
@@ -15,8 +20,14 @@ function load() {
     const saved = JSON.parse(localStorage.getItem('smpn5tsg-demo') || 'null');
     if (saved) Object.assign(state, saved);
   } catch (error) {
-    console.warn('Gagal memuat state localStorage:', error);
+    console.warn('Gagal memuat state dari localStorage:', error);
   }
+
+  state.classes = state.classes || [];
+  state.subjects = state.subjects || [];
+  state.students = state.students || [];
+  state.links = state.links || [];
+  state.users = state.users || [];
 }
 
 function esc(value) {
@@ -25,6 +36,45 @@ function esc(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+async function refreshData() {
+  const client = window.SMPN5TSGAuth?.state?.client;
+  if (!client || !state.user) return;
+
+  try {
+    const role = state.role;
+
+    if (role === 'admin' || role === 'guru') {
+      const [{ data: classesData }, { data: subjectsData }, { data: studentsData }, { data: linksData }] = await Promise.all([
+        client.from('classes').select('*').order('class_name'),
+        client.from('subjects').select('*').order('name'),
+        client.from('students')
+          .select('id, nis, class_id, profiles(full_name, email)')
+          .order('nis'),
+        client.from('exam_links')
+          .select('id, title, url, status, class_id, subject_id')
+          .order('title')
+      ]);
+
+      state.classes = classesData || [];
+      state.subjects = subjectsData || [];
+      state.students = studentsData || [];
+      state.links = linksData || [];
+    }
+
+    if (role === 'admin') {
+      const { data: profilesData } = await client
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .order('full_name');
+      state.users = profilesData || [];
+    }
+
+    save();
+  } catch (error) {
+    console.warn('Gagal memuat data Supabase:', error);
+  }
 }
 
 async function login() {
@@ -61,6 +111,7 @@ async function login() {
     };
     state.role = profile.role;
     state.view = 'dashboard';
+    await refreshData();
     save();
     render();
   } catch (error) {
@@ -94,7 +145,7 @@ function renderLogin() {
 
         <label class="field">
           <span>Email</span>
-          <input id="email" type="email" placeholder="admin@guru.smp.belajar.id" />
+          <input id="email" type="email" placeholder="admin@sekolah.sch.id" />
         </label>
 
         <label class="field">
@@ -119,7 +170,12 @@ function renderLogin() {
 
 function renderDashboard() {
   const userName = state.user?.name || state.user?.email || 'Pengguna';
-  const roleLabel = state.role || 'user';
+  const cards = [
+    { title: 'Kelas', value: String(state.classes.length) },
+    { title: 'Mata Pelajaran', value: String(state.subjects.length) },
+    { title: 'Siswa', value: String(state.students.length) },
+    { title: 'Link Form', value: String(state.links.length) }
+  ];
 
   return `
     <main class="dashboard">
@@ -137,26 +193,23 @@ function renderDashboard() {
         <div>
           <p class="muted">Sistem Ulangan Online</p>
           <h1>Selamat datang, ${esc(userName)}</h1>
-          <p class="muted">Akses: ${esc(roleLabel)}</p>
+          <p class="muted">Akses: ${esc(state.role)}</p>
         </div>
       </section>
 
       <section class="grid">
-        <div class="card">
-          <h3>Ringkasan</h3>
-          <p>Login berhasil menggunakan Supabase Auth.</p>
-          <p>Role aktif: <strong>${esc(roleLabel)}</strong></p>
-        </div>
+        ${cards.map(card => `
+          <div class="card compact-card">
+            <h3>${esc(card.title)}</h3>
+            <p class="big-number">${esc(card.value)}</p>
+          </div>
+        `).join('')}
+      </section>
 
-        <div class="card">
-          <h3>Menu cepat</h3>
-          <ul>
-            <li>Kelola kelas</li>
-            <li>Kelola mata pelajaran</li>
-            <li>Kelola siswa</li>
-            <li>Kelola link Google Form</li>
-          </ul>
-        </div>
+      <section class="card">
+        <h3>Info</h3>
+        <p>Data aplikasi dibaca dari Supabase. Login menggunakan akun Supabase yang aktif.</p>
+        ${state.role === 'admin' ? `<p>Mode admin aktif.</p>` : ''}
       </section>
     </main>
   `;
@@ -189,6 +242,7 @@ async function restoreSessionOnLoad() {
     };
     state.role = profile.role;
     state.view = 'dashboard';
+    await refreshData();
     save();
     render();
   } catch (error) {
@@ -199,3 +253,21 @@ async function restoreSessionOnLoad() {
 load();
 render();
 restoreSessionOnLoad();
+
+window.SMPN5TSGApp = {
+  state,
+  refreshData,
+  login,
+  logout,
+  render,
+  restoreSessionOnLoad
+};
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch((error) => {
+      console.warn('Service worker registration failed:', error);
+    });
+  });
+}
+

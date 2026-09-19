@@ -1,9 +1,9 @@
 /* Isi dari Supabase Dashboard > Project Settings > API. Jangan masukkan service_role key. */
 window.SMPN5TSG_CONFIG = {
-  supabaseUrl: 'https://YOUR_PROJECT_REF.supabase.co',
-  supabaseAnonKey: 'YOUR_SUPABASE_ANON_KEY',
+  supabaseUrl: 'https://xvdrygvcfeqnxtmksbbd.supabase.co',
+  supabaseAnonKey: 'sb_publishable_pA2r0LADgwa9QmECD_KWGw_WARY8MUa',
   googleAppsScriptUrl: '',
-  useSupabase: false
+  useSupabase: true
 };
 
 window.SMPN5TSG_CONFIG.isSupabaseConfigured = function () {

@@ -1,35 +1,44 @@
-/* UI fixes for role navigation and student enrollment. */
+/* Siswa dibuat oleh Admin melalui Edge Function yang aman. */
 (function () {
-  const originalStudentsPage = window.studentsPage;
+  const app = window.SMPN5TSGApp;
+  if (!app) return;
 
   window.addStudent = async function () {
-    const db = window.SMPN5TSGAuth?.state?.client;
-    const app = window.SMPN5TSGApp;
-    if (!db || !app?.state?.user) return alert('Sesi Supabase tidak aktif. Silakan login ulang.');
     const state = app.state;
-    const email = prompt('Email siswa yang sudah dibuat di Supabase Authentication');
+    const db = window.SMPN5TSGAuth?.state?.client;
+    if (state.role !== 'admin') return alert('Hanya Admin yang dapat menambahkan akun siswa.');
+    if (!db) return alert('Sesi Supabase tidak aktif. Silakan login ulang.');
+    if (!state.classes.length) return alert('Buat kelas terlebih dahulu.');
+
+    const fullName = prompt('Nama lengkap siswa');
+    const email = prompt('Email/login siswa');
+    const password = prompt('Password awal siswa (minimal 6 karakter)');
     const nis = prompt('NIS siswa');
     const className = prompt(`Kelas: ${state.classes.map(c => c.class_name).join(', ')}`);
-    if (!email?.trim() || !nis?.trim() || !className?.trim()) return;
-
+    if (!fullName?.trim() || !email?.trim() || !password || !nis?.trim() || !className?.trim()) return;
     const klass = state.classes.find(c => c.class_name.toLowerCase() === className.trim().toLowerCase());
-    if (!klass) return alert('Kelas tidak ditemukan atau bukan kelas yang Anda kelola.');
+    if (!klass) return alert('Kelas tidak ditemukan.');
 
-    const profile = await db.from('profiles').select('id, role').eq('email', email.trim().toLowerCase()).eq('role', 'student').maybeSingle();
-    if (profile.error) return alert(profile.error.message);
-    if (!profile.data) return alert('Profil siswa tidak ditemukan. Buat akun siswa di Authentication → Users dan pastikan role-nya student.');
-
-    const result = await db.from('students').upsert({ profile_id: profile.data.id, class_id: klass.id, nis: nis.trim() }, { onConflict: 'profile_id' });
-    if (result.error) return alert(result.error.message);
-    await app.refreshData();
-    app.render();
+    try {
+      const { data: sessionData } = await db.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) return alert('Sesi login habis. Silakan login ulang.');
+      const { data, error } = await db.functions.invoke('admin-create-student', {
+        body: { full_name: fullName.trim(), email: email.trim().toLowerCase(), password, nis: nis.trim(), class_id: klass.id }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      alert('Akun siswa berhasil dibuat. Simpan email dan password untuk siswa.');
+      await app.refreshData();
+      app.render();
+    } catch (error) {
+      alert(error.message || 'Gagal membuat akun siswa. Pastikan Edge Function sudah di-deploy.');
+    }
   };
 
   window.studentsPage = function () {
-    const state = window.SMPN5TSGApp?.state;
-    if (!state) return originalStudentsPage ? originalStudentsPage() : '';
     const rows = state.students.map(s => `<tr><td>${esc(s.profiles?.full_name || '-')}</td><td>${esc(s.nis || '-')}</td><td>${esc(state.classes.find(c => c.id === s.class_id)?.class_name || '-')}</td><td>${esc(s.profiles?.email || '-')}</td></tr>`).join('');
-    return `<div class="page-head"><h1>Siswa</h1>${state.role === 'admin' || state.role === 'guru' ? '<button class="btn primary small" onclick="addStudent()">+ Tambah Siswa</button>' : ''}</div><section class="card"><h2>Daftar siswa</h2><p class="notice">Siswa harus dibuat terlebih dahulu di Supabase Authentication → Users, lalu role profilnya diatur menjadi student.</p><div class="table-wrap"><table class="table"><tr><th>Nama</th><th>NIS</th><th>Kelas</th><th>Email</th></tr>${rows || '<tr><td colspan="4">Belum ada siswa.</td></tr>'}</table></div></section>`;
+    return `<div class="page-head"><h1>Siswa</h1>${state.role === 'admin' ? '<button class="btn primary small" onclick="addStudent()">+ Tambah Akun Siswa</button>' : ''}</div><section class="card"><h2>Daftar siswa</h2><p class="notice">Admin dapat membuat akun siswa langsung dari aplikasi. Password awal harus dibagikan secara aman kepada siswa.</p><div class="table-wrap"><table class="table"><tr><th>Nama</th><th>NIS</th><th>Kelas</th><th>Email</th></tr>${rows || '<tr><td colspan="4">Belum ada siswa.</td></tr>'}</table></div></section>`;
   };
 
   const style = document.createElement('style');

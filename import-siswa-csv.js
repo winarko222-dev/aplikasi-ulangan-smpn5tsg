@@ -1,138 +1,172 @@
-/* Import siswa dari CSV untuk Admin dengan validasi duplikat NISN. */
 (function () {
-  const state = () => window.SMPN5TSGApp?.state;
-  const db = () => window.SMPN5TSGAuth?.state?.client;
+  function getAppState() {
+    return window.SMPN5TSGApp?.state || null;
+  }
+
+  function getClient() {
+    return window.SMPN5TSGAuth?.state?.client || null;
+  }
 
   function generatePassword(length = 12) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let password = '';
-    for (let i = 0; i < length; i++) {
+    for (let i = 0; i < length; i += 1) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return password;
   }
 
   function parseCsv(text) {
-    const lines = text.trim().split('\n');
+    const lines = String(text || '').split(/\r?\n/).filter(line => line.trim());
     const rows = [];
-    for (let i = 0; i < lines.length; i++) {
-      const parts = lines[i].split(',').map(p => p.trim());
-      if (parts.length < 3 || !parts[0]) continue;
-      rows.push({
-        nama: parts[0],
-        nisn: parts[1],
-        kelas: parts[2]
-      });
+
+    for (const line of lines) {
+      const cells = line.split(',').map(value => value.trim());
+      if (cells.length < 3 || !cells[0]) continue;
+      rows.push({ nama: cells[0], nisn: cells[1], kelas: cells[2] });
     }
+
     return rows;
   }
 
   function validateDuplicateNisn(rows) {
     const seen = new Set();
     const dupes = [];
-    rows.forEach((row) => {
-      const key = String(row.nisn || '').trim();
-      if (!key) return;
-      if (seen.has(key)) dupes.push(key);
-      seen.add(key);
+
+    rows.forEach(row => {
+      const nisn = String(row.nisn || '').trim();
+      if (!nisn) return;
+      if (seen.has(nisn)) dupes.push(nisn);
+      seen.add(nisn);
     });
+
     return [...new Set(dupes)];
   }
 
   async function importSiswaFromCsv() {
-    const current = state();
-    const client = db();
+    const state = getAppState();
+    const client = getClient();
 
-    if (!current?.user || !client) return alert('Sesi Supabase tidak aktif.');
-    if (current.role !== 'admin') return alert('Hanya Admin yang bisa import siswa.');
-    if (!current.classes.length) return alert('Buat kelas terlebih dahulu.');
+    if (!state || !state.user) {
+      alert('Sesi login belum aktif. Silakan login ulang sebagai Admin.');
+      return;
+    }
+
+    if (state.role !== 'admin') {
+      alert('Hanya Admin yang dapat mengimport siswa.');
+      return;
+    }
+
+    if (!client) {
+      alert('Supabase belum aktif. Pastikan config.js dan auth.js sudah dimuat.');
+      return;
+    }
+
+    if (!state.classes?.length) {
+      alert('Belum ada kelas yang dibuat. Buat kelas dulu sebelum import siswa.');
+      return;
+    }
 
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.csv';
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
+    input.accept = '.csv,text/csv';
+    input.style.display = 'none';
+
+    input.onchange = async (event) => {
+      const file = event.target?.files?.[0];
       if (!file) return;
 
-      const text = await file.text();
-      const rows = parseCsv(text);
+      try {
+        const text = await file.text();
+        const rows = parseCsv(text);
 
-      if (!rows.length) return alert('File CSV tidak valid. Format: Nama, NISN, Kelas');
-
-      const duplicates = validateDuplicateNisn(rows);
-      if (duplicates.length) {
-        alert(`NISN duplikat ditemukan: ${duplicates.join(', ')}`);
-        return;
-      }
-
-      const results = [];
-      let success = 0;
-      let failed = 0;
-
-      for (const row of rows) {
-        const klass = current.classes.find(c => c.class_name.toLowerCase() === row.kelas.toLowerCase());
-        if (!klass) {
-          results.push({ nama: row.nama, nisn: row.nisn, status: 'GAGAL: Kelas tidak ditemukan' });
-          failed++;
-          continue;
+        if (!rows.length) {
+          alert('File CSV tidak valid. Format yang benar: Nama,NISN,Kelas');
+          return;
         }
 
-        const email = `${row.nisn}@siswa.smpn5tsg.id`;
-        const password = generatePassword();
+        const dupes = validateDuplicateNisn(rows);
+        if (dupes.length) {
+          alert('NISN duplikat ditemukan: ' + dupes.join(', '));
+          return;
+        }
 
-        try {
-          const { data, error } = await client.functions.invoke('admin-create-student', {
-            body: {
-              full_name: row.nama,
-              email: email,
-              password: password,
-              nis: row.nisn,
-              class_id: klass.id
-            }
-          });
+        const results = [];
+        let successCount = 0;
+        let failedCount = 0;
 
-          if (error || data?.error) {
-            results.push({ nama: row.nama, nisn: row.nisn, status: 'GAGAL: ' + (data?.error || error?.message) });
-            failed++;
-          } else {
-            localStorage.setItem(`smpn5tsg-password-changed:${row.nisn}`, '0');
-            results.push({ nama: row.nama, nisn: row.nisn, email: email, password: password, status: 'BERHASIL' });
-            success++;
+        for (const row of rows) {
+          const klass = state.classes.find(c => String(c.class_name || '').trim().toLowerCase() === String(row.kelas || '').trim().toLowerCase());
+          if (!klass) {
+            results.push({ nama: row.nama, nisn: row.nisn, status: 'GAGAL: kelas tidak ditemukan' });
+            failedCount += 1;
+            continue;
           }
-        } catch (err) {
-          results.push({ nama: row.nama, nisn: row.nisn, status: 'ERROR: ' + err.message });
-          failed++;
+
+          const email = `${String(row.nisn).trim()}@siswa.smpn5tsg.id`;
+          const password = generatePassword();
+
+          try {
+            const payload = {
+              full_name: row.nama,
+              email,
+              password,
+              nis: String(row.nisn).trim(),
+              class_id: klass.id
+            };
+
+            const { data, error } = await client.functions.invoke('admin-create-student', { body: payload });
+
+            if (error || data?.error) {
+              const message = data?.error || error?.message || 'gagal dibuat';
+              results.push({ nama: row.nama, nisn: row.nisn, status: `GAGAL: ${message}` });
+              failedCount += 1;
+            } else {
+              localStorage.setItem(`smpn5tsg-password-changed:${String(row.nisn).trim()}`, '0');
+              results.push({ nama: row.nama, nisn: row.nisn, email, password, status: 'BERHASIL' });
+              successCount += 1;
+            }
+          } catch (err) {
+            results.push({ nama: row.nama, nisn: row.nisn, status: `ERROR: ${err?.message || 'tidak diketahui'}` });
+            failedCount += 1;
+          }
         }
+
+        alert(`Import selesai.\nBerhasil: ${successCount}\nGagal: ${failedCount}`);
+
+        const exportRows = [
+          ['Nama', 'NISN', 'Email', 'Password', 'Status'],
+          ...results.map(item => [item.nama, item.nisn, item.email || '-', item.password || '-', item.status])
+        ];
+
+        const csvText = exportRows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([`\ufeff${csvText}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `import-siswa-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+
+        if (window.SMPN5TSGApp?.refreshData) {
+          await window.SMPN5TSGApp.refreshData();
+        }
+        if (window.SMPN5TSGApp?.render) {
+          window.SMPN5TSGApp.render();
+        }
+      } catch (error) {
+        console.error('Import CSV error:', error);
+        alert(error?.message || 'Gagal membaca file CSV.');
       }
-
-      alert(`Import selesai.\nBerhasil: ${success}\nGagal: ${failed}`);
-
-      const headers = ['Nama', 'NISN', 'Email', 'Password', 'Status'];
-      const lines = [headers, ...results.map(r => [
-        r.nama,
-        r.nisn,
-        r.email || '-',
-        r.password || '-',
-        r.status
-      ])].map(line => line.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','));
-
-      const blob = new Blob([`\ufeff${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `import-siswa-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-
-      await window.SMPN5TSGApp.refreshData();
-      window.SMPN5TSGApp.render();
     };
+
+    document.body.appendChild(input);
     input.click();
+    setTimeout(() => input.remove(), 1000);
   }
 
   window.importSiswaFromCsv = importSiswaFromCsv;
+  window.SMPN5TSGImport = { importSiswaFromCsv };
 })();
-
-                    

@@ -38,6 +38,13 @@ function restoreState() {
   }
 }
 
+function normalizeStudentLoginId(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return raw;
+  if (raw.includes('@')) return raw;
+  return `${raw}@siswa.smpn5tsg.id`;
+}
+
 async function refreshData() {
   const db = client();
   if (!db || !state.user) return;
@@ -104,12 +111,13 @@ async function refreshData() {
 }
 
 async function login() {
-  const email = document.getElementById('email').value.trim().toLowerCase();
+  const rawIdentifier = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
   const role = document.getElementById('role').value;
+  const email = role === 'student' ? normalizeStudentLoginId(rawIdentifier) : rawIdentifier.toLowerCase();
 
   if (!email || !password) {
-    alert('Email dan password wajib diisi.');
+    alert('Email/NISN dan password wajib diisi.');
     return;
   }
 
@@ -148,7 +156,7 @@ function go(view) {
 
 function loginPage() {
   return `<main class="login"><section class="card login-card"><div class="logo">S</div><h1>SMPN5TSG</h1><p class="muted">Sistem Ulangan Online</p>
-    <label class="field"><span>Email</span><input id="email" type="email" placeholder="email Anda" /></label>
+    <label class="field"><span>Email / NISN</span><input id="email" type="text" placeholder="contoh: 12345678 atau email@sekolah.id" /></label>
     <label class="field"><span>Password</span><input id="password" type="password" placeholder="password Anda" /></label>
     <label class="field"><span>Login sebagai</span><select id="role"><option value="admin">Admin</option><option value="guru">Guru</option><option value="student">Siswa</option></select></label>
     <button class="btn primary" onclick="login()">Masuk</button>
@@ -177,7 +185,7 @@ function dashboard() {
       ? [['Kelas', state.classes.length], ['Mapel', state.subjects.length], ['Siswa', state.students.length], ['Link Ulangan', state.links.length]]
       : [['Ulangan', state.links.length], ['Nilai', state.results.length]];
 
-  return `<div class="welcome"><p class="muted">Sistem Ulangan Online</p><h1>Selamat datang, ${esc(state.user.name)}</h1><p class="muted">Akses: ${esc(roleLabel[state.role] || state.role)}</p></div><div class="grid">${data.map(([label, value]) => `<div class="tile"><h3>${esc(label)}</h3><strong>${value}</strong></div>`).join('')}</div>`;
+  return `<div class="welcome"><p class="muted">Sistem Ulangan Online</p><h1>Selamat datang, ${esc(state.user.name)}</h1><p class="muted">Akses: ${esc(roleLabel[state.role] || state.role)}</p><div class="stats">${data.map(([label, value]) => `<div class="stat"><span>${esc(label)}</span><strong>${value}</strong></div>`).join('')}</div></div>`;
 }
 
 function classesPage() {
@@ -221,8 +229,12 @@ async function deleteSubject(id) {
 }
 
 function studentsPage() {
+  const importBtn = state.role === 'admin'
+    ? '<button class="btn primary small" onclick="window.importSiswaFromCsv && window.importSiswaFromCsv()">📥 Import Siswa (CSV)</button>'
+    : '';
+
   const rows = state.students.map(s => `<tr><td>${esc(s.profiles?.full_name || '-')}</td><td>${esc(s.nis || '-')}</td><td>${esc(state.classes.find(c => c.id === s.class_id)?.class_name || '-')}</td><td>${esc(s.profiles?.email || '-')}</td></tr>`).join('');
-  return `<div class="page-head"><h1>Siswa</h1></div>${card('Daftar siswa', `<table class="table"><tr><th>Nama</th><th>NIS</th><th>Kelas</th><th>Email</th></tr>${rows || '<tr><td colspan="4">Belum ada siswa.</td></tr>'}</table>`)}`;
+  return `<div class="page-head"><h1>Siswa</h1>${importBtn}</div>${card('Daftar siswa', `<p class="muted">Login siswa bisa memakai NISN atau email alias NISN. Contoh: 12345678 → 12345678@siswa.smpn5tsg.id</p><table class="table"><tr><th>Nama</th><th>NISN</th><th>Kelas</th><th>Email</th></tr>${rows || '<tr><td colspan="4">Belum ada siswa.</td></tr>'}</table>`)}`;
 }
 
 function usersPage() {
@@ -231,7 +243,7 @@ function usersPage() {
 }
 
 function linksPage() {
-  const rows = state.links.map(l => `<tr><td>${esc(l.title)}</td><td>${esc(state.classes.find(c => c.id === l.class_id)?.class_name || '-')}</td><td>${esc(l.status)}</td><td><a href="${esc(l.url)}" target="_blank" rel="noopener">Buka</a></td></tr>`).join('');
+  const rows = state.links.map(l => `<tr><td>${esc(l.title)}</td><td>${esc(state.classes.find(c => c.id === l.class_id)?.class_name || '-')}</td><td>${esc(l.status)}</td><td><a href="${esc(l.url)}" target="_blank">Buka</a></td></tr>`).join('');
   return `<div class="page-head"><h1>Link Ulangan</h1>${state.role !== 'student' ? '<button class="btn primary small" onclick="addLink()">+ Tambah Link</button>' : ''}</div>${card('Daftar link', `<table class="table"><tr><th>Judul</th><th>Kelas</th><th>Status</th><th>Link</th></tr>${rows || '<tr><td colspan="4">Belum ada link.</td></tr>'}</table>`)}`;
 }
 

@@ -1,4 +1,4 @@
-/* Import siswa dari CSV untuk Admin. */
+/* Import siswa dari CSV untuk Admin dengan dukungan reset password. */
 (function () {
   const state = () => window.SMPN5TSGApp?.state;
   const db = () => window.SMPN5TSGAuth?.state?.client;
@@ -14,9 +14,8 @@
 
   function parseCsv(text) {
     const lines = text.trim().split('\n');
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
     const rows = [];
-    for (let i = 1; i < lines.length; i++) {
+    for (let i = 0; i < lines.length; i++) {
       const parts = lines[i].split(',').map(p => p.trim());
       if (parts.length < 3 || !parts[0]) continue;
       rows.push({

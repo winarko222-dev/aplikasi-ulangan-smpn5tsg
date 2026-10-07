@@ -43,6 +43,27 @@
     return [...new Set(dupes)];
   }
 
+  function findClassByName(state, namaKelas) {
+    if (!namaKelas || !state?.classes) return null;
+    
+    const search = String(namaKelas).trim().toLowerCase();
+    
+    // Cari exact match dulu (case-insensitive)
+    let found = state.classes.find(c => 
+      String(c.class_name || '').trim().toLowerCase() === search
+    );
+    
+    if (found) return found;
+    
+    // Jika tidak ketemu, cari partial match (untuk fleksibilitas)
+    // Contoh: "VII" bisa match "VII-a" jika hanya ada satu
+    found = state.classes.find(c => 
+      String(c.class_name || '').trim().toLowerCase().includes(search)
+    );
+    
+    return found || null;
+  }
+
   async function importSiswaFromCsv() {
     const state = getAppState();
     const client = getClient();
@@ -96,9 +117,13 @@
         let failedCount = 0;
 
         for (const row of rows) {
-          const klass = state.classes.find(c => String(c.class_name || '').trim().toLowerCase() === String(row.kelas || '').trim().toLowerCase());
+          const klass = findClassByName(state, row.kelas);
           if (!klass) {
-            results.push({ nama: row.nama, nisn: row.nisn, status: 'GAGAL: kelas tidak ditemukan' });
+            results.push({ 
+              nama: row.nama, 
+              nisn: row.nisn, 
+              status: `GAGAL: kelas "${row.kelas}" tidak ditemukan. Kelas tersedia: ${state.classes.map(c => c.class_name).join(', ')}` 
+            });
             failedCount += 1;
             continue;
           }
@@ -135,8 +160,8 @@
         alert(`Import selesai.\nBerhasil: ${successCount}\nGagal: ${failedCount}`);
 
         const exportRows = [
-          ['Nama', 'NISN', 'Email', 'Password', 'Status'],
-          ...results.map(item => [item.nama, item.nisn, item.email || '-', item.password || '-', item.status])
+          ['Nama', 'NISN', 'Kelas', 'Email', 'Password', 'Status'],
+          ...results.map(item => [item.nama, item.nisn, item.kelas || '-', item.email || '-', item.password || '-', item.status])
         ];
 
         const csvText = exportRows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
